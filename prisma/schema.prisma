@@ -1,0 +1,197 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+
+enum PurchaseStatus {
+  PROCESSING
+  ACCEPTED
+  REJECTED
+}
+
+
+
+model Profile {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String  @unique
+  name     String
+  imageUrl String?
+  email    String
+
+  role      MemberRole @default(STUDENT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Teacher {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String
+  name        String
+  imageUrl    String?
+  description String?
+
+  categoryId String?   @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  courses Course[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@unique([id, userId])
+}
+
+model Course {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String
+  title       String
+  description String?
+  imageUrl    String?
+  price       Float?
+  isPublished Boolean @default(false)
+  isVisible   Boolean @default(false)
+
+  categoryId String?   @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  fieldId String? @db.ObjectId
+  field   Field?  @relation(fields: [fieldId], references: [id])
+
+  teacherId String?  @db.ObjectId
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
+
+  attachments Attachment[]
+  chapters    Chapter[]
+  purchases   Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([teacherId])
+  @@fulltext([title])
+}
+
+model Attachment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  url       String
+
+  courseId  String?  @db.ObjectId
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  chapterId String?  @db.ObjectId
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([chapterId])
+}
+
+model Category {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  courses Course[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Teacher   Teacher[]
+}
+
+model Field {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  courses Course[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Chapter {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  videoUrl    String?
+  position    Int
+  isPublished Boolean      @default(false)
+  isFree      Boolean      @default(false)
+
+  muxData     MuxData?
+  attachments Attachment[] // Relation for chapter-specific attachments
+
+  courseId    String       @db.ObjectId
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  userProgress UserProgress[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([courseId])
+}
+
+model MuxData {
+  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  assetId    String
+  playbackId String?
+
+  chapterId String  @unique @db.ObjectId
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+}
+
+model UserProgress {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String
+
+  chapterId String  @db.ObjectId
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  isCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, chapterId])
+  @@index([chapterId])
+}
+
+
+
+model Purchase {
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  courseId  String         @db.ObjectId
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status    PurchaseStatus @default(PROCESSING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, courseId]) // Ensure uniqueness of enrollments
+}
+
+
+model Logging {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  url          String
+  method       String
+  body         String?
+  response     String?
+  statusCode   Int?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+}
